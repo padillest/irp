@@ -1,0 +1,361 @@
+## Importing libraries ##
+
+import pandas as pd 
+import numpy as np 
+from statistics import mean 
+
+## Importing files for dataset merge ## 
+
+nu = pd.read_csv("C:/Users/denni/OneDrive/Desktop/NU v6.csv")
+fu = pd.read_csv("C:/Users/denni/OneDrive/Desktop/FU v6.csv")
+
+## Dropping excess columns ##
+
+nu = nu.loc[:, ~nu.columns.str.contains("Updated")]
+nu = nu.loc[:, ~nu.columns.str.contains("Answered")]
+fu = fu.loc[:, ~fu.columns.str.contains("Updated")]
+fu = fu.loc[:, ~fu.columns.str.contains("Answered")]
+
+## Merging the datasets ##
+
+merge = pd.concat([nu, fu], ignore_index = True)
+
+## Addressing date issues ##
+
+# Combining dates and times and reformatting #
+def dateCombine(df, newCol, dateCol, timeCol):
+    df[newCol] = df[dateCol] + " " + df[timeCol]
+    
+dateCombine(merge, "surveyStart", "surveyStartDate", "surveyStartTime")
+dateCombine(merge, "surveySubmit", "surveySubmitDate", "surveySubmitTime")
+dateCombine(merge, "trigger", "triggerDate", "triggerTime")
+
+# Reformatting # 
+
+def dateConv(df, col):
+    df[col] = pd.to_datetime(df[col], format = "%d/%m/%Y %I:%M:%S %p")
+    
+dateConv(merge, "surveyStart")
+dateConv(merge, "surveySubmit")
+dateConv(merge, "trigger")
+
+# Dropping leftover columns #
+
+colDrop = [
+    "surveyStartDate", "surveyStartTime", "surveySubmitDate", 
+    "surveySubmitTime", "triggerDate", "triggerTime"   
+]
+
+## Re-indexing 2500+ shape dataframe by ID and date ## 
+
+merge = merge.sort_values(by = ["id", "surveyStart"])
+merge = merge.reset_index()
+merge = merge.drop(columns = colDrop)
+
+## Adding session numbers to new-use responses
+
+merge["session"] = pd.Series(int)
+
+n = 1 
+data = pd.Index(merge)
+for i in merge.index:
+    currID = merge["id"].iloc[i]
+    if i != data.size-1:
+        nextID = merge["id"].iloc[i+1]
+        if currID == nextID:
+            surveyType = merge["surveyName"].iloc[i]
+            if surveyType == "New Use Survey":
+                merge.at[i, "session"] = n 
+                n += 1
+            else:
+                merge.at[i, "session"] = n-1
+        else:
+            surveyType = merge["surveyName"].iloc[i]
+            if surveyType == "New Use Survey":
+                merge.at[i, "session"] = n 
+                n = 1
+            else:
+                merge.at[i, "session"] = n-1
+                n = 1
+    else:
+        surveyType = merge["surveyName"].iloc[i]
+        if surveyType == "New Use Survey":
+            merge.at[i, "session"] = n
+        else:
+            merge.at[i, "session"] = n-1
+            
+merge = merge.drop(columns = "index")
+
+## Creating necessary compliance columns for compliance calculations ## 
+
+merge["compliance"] = pd.Series(int)
+merge["personCompliance"] = pd.Series(int)
+merge['personTotal'] = pd.Series(int)
+merge['personCompleted'] = pd.Series(int)
+merge['nuTotal']=pd.Series(int)
+
+## Dropping erroneous rows due to the software (MetricWire) ## 
+
+merge = merge.drop(index=[
+    374, 402, 598, 599, 617, 702, 
+    772, 913, 953, 1174, 1184, 1201, 
+    1202, 1203, 1220, 1227, 1502, 1723,
+    1820, 1969, 2330, 2338, 2364, 2387, 2388
+])
+
+merge =merge.reset_index(drop=True)
+
+## Caluclating participant and survey compliance ## 
+
+sessionCompliance = []
+total = []
+complete =[]
+
+data = pd.Index(merge)
+n = 0
+counter = 0 
+nuCount = 0
+
+def roundComp(i, sessionCompliance, total, complete, nuCount):
+    merge.iloc[i, 104] = round((mean(sessionCompliance))*100, 2)
+    merge.iloc[i,105] = sum(total)
+    merge.iloc[i,106] = sum(complete)
+    merge.iloc[i,107] = nuCount
+    
+def sessCompAdd(i, completed, totalFU):
+    merge.iloc[i, 103] = completed/totalFU
+    sessionCompliance.append(merge.iloc[i, 103])
+    total.append(totalFU)
+    complete.append(completed)
+
+for i in merge.index: 
+    currID = merge.iloc[i, 0]
+    if i != data.size-1:
+        nextID = merge.iloc[i+1, 0]
+        if currID == nextID:
+            currSess = merge.iloc[i, 102]
+            nextSess = merge.iloc[i+1, 102]
+            if currSess == nextSess:
+                if merge.iloc[i, 1] == "New Use Survey":
+                    submitTime = merge.iloc[i, 100]
+                    totalFU = 2
+                    completed = 0 
+                    n = 0 
+                    counter = 0 
+                    nuCount +=1
+                    merge.iloc[i, 103] = np.nan
+                    merge.iloc[i, 107] = np.nan
+                else:
+                    n += 1 
+                    surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
+                    if surveyDiff <= (7200 * n):
+                        completed += 1
+                        if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
+                            totalFU += 1
+                            if counter == 1:
+                                totalFU += 1
+                                counter = 0 
+                        else:
+                            counter += 1
+            else:
+                if merge.iloc[i, 1] == "New Use Survey":
+                    totalFU = 2 
+                    completed = 0 
+                    nuCount +=1
+                    merge.iloc[i, 107] = np.nan
+                    sessCompAdd(i, completed, totalFU)
+                else:
+                    n += 1
+                    surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
+                    if surveyDiff > (7200 * n):
+                        sessCompAdd(i, completed, totalFU)
+                    else:
+                        completed += 1
+                        if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
+                            totalFU += 1 
+                            if counter == 1:
+                                totalFU += 1
+                                sessCompAdd(i, completed, totalFU)
+                            else:
+                                sessCompAdd(i, completed, totalFU)
+                        else:
+                            sessCompAdd(i, completed, totalFU)                        
+        else:
+            if merge.iloc[i, 1] == "New Use Survey":
+                totalFU = 2 
+                completed = 0 
+                n = 0
+                nuCount+=1
+                sessCompAdd(i, completed, totalFU)
+                roundComp(i, sessionCompliance, total, complete, nuCount)
+                sessionCompliance = []
+                total = []
+                complete =[]
+                nuCount=0
+            else:
+                n += 1 
+                surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
+                if surveyDiff > (7200 * n):
+                        sessCompAdd(i, completed, totalFU)
+                        roundComp(i, sessionCompliance, total, complete, nuCount)
+                        sessionCompliance = []
+                        total = []
+                        complete =[]
+                        n = 0
+                        nuCount=0
+                else:
+                    completed += 1
+                    if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
+                        totalFU += 1 
+                        n = 0
+                        sessCompAdd(i, completed, totalFU)
+                        roundComp(i, sessionCompliance, total, complete, nuCount)
+                        sessionCompliance = []
+                        total = []
+                        complete =[]
+                        nuCount=0
+                    else:
+                        n = 0
+                        sessCompAdd(i, completed, totalFU)
+                        roundComp(i, sessionCompliance, total, complete, nuCount)
+                        sessionCompliance = []
+                        total = []
+                        complete =[]
+                        nuCount=0
+    else:
+        if merge.iloc[i, 1] == "New Use Survey":
+            totalFU =2 
+            completed = 0
+            nuCount +=1
+            sessCompAdd(i, completed, totalFU)
+            roundComp(i, sessionCompliance, total, complete, nuCount)
+        else:
+            n += 1
+            surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
+            if surveyDiff > (7200 * n):
+                sessCompAdd(i, completed, totalFU)
+                roundComp(i, sessionCompliance, total, complete, nuCount)
+            else:
+                completed += 1
+                if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
+                    totalFU += 1 
+                    sessCompAdd(i, completed, totalFU)
+                    roundComp(i, sessionCompliance, total, complete, nuCount)
+                else:
+                    sessCompAdd(i, completed, totalFU)
+                    roundComp(i, sessionCompliance, total, complete, nuCount)
+                    
+## Saving as CSV to prepare it for multi-level modeling ## 
+
+merge.to_csv('C:/Users/denni/OneDrive/Desktop/mlm.csv')
+
+## Reformatting to long data with hypothesized predictors ## 
+
+data = pd.read_csv('C:/Users/denni/OneDrive/Desktop/mlm.csv')
+
+# Filling in NAN values by reversing the index of the dataset # 
+
+# Person Compliance #
+
+pComp = data.loc[
+    :,
+    ['id', 'personCompliance']
+]
+bpComp = pComp.iloc[::-1]
+for i in range(1, pd.Index(bpComp).size):
+    if bpComp.iloc[i,0] == bpComp.iloc[i-1,0]:
+        bpComp.iloc[i,1] = bpComp.iloc[i-1,1]
+pCom = bpComp.iloc[::-1]
+data['pComp']=pCom['personCompliance']
+
+# Episode Compliance #
+
+com = data.loc[
+    :,
+    ['session', 'compliance']
+]
+bCom = com.iloc[::-1]
+bCom = bCom.reset_index(drop=True)
+for i in bCom.index:
+    if i==0:
+        None
+    else:
+        if bCom.iloc[i,0]==bCom.iloc[i-1,0]:
+            bCom.iloc[i,1]=bCom.iloc[i-1,1]
+data['comp'] = comp['compliance']
+
+## Identifying and storing columns of interest ## 
+
+mlmVars = [
+    'id','surveyName','pComp', 
+    'comp','howHigh','howDrunk',
+]
+df = data.loc[
+    :,
+    mlmVars
+]
+
+## Calculating for poly-substance use episodes ## 
+
+polySub = data.loc[
+    :,
+    [
+        "id", "alcoholUse", "cannabisUse", "tobaccoUse", "otherUse"
+    ]
+]
+
+polySub["polySub"] = [
+    1 if x > 1 
+    else 0 
+    for x in np.sum(polySub.values == 1, 1)]
+
+polySub["session"] = data["session"]
+
+polySub["polySubEpisode"] = pd.Series(int)
+
+x = pd.Index(polySub)
+use = []
+
+for i in polySub.index:
+    currSess = polySub.iloc[i, 6]
+    if i != x.size-1:
+        nextSess = polySub.iloc[i+1,6]
+        if currSess == nextSess:
+            use.append(polySub.iloc[i, 5])
+            polySub.iloc[i, 7] == np.nan
+        else:
+            use.append(polySub.iloc[i, 5])
+            if 1 in use:
+                polySub.iloc[i, 7] = 1
+                use = []
+            else:
+                polySub.iloc[i, 7] = 0
+                use = []
+    else:
+        use.append(polySub.iloc[i, 5])
+        if 1 in use:
+            polySub.iloc[i, 7] = 1
+        else:
+            polySub.iloc[i, 7] = 0
+df['polySub'] = polySub.loc[
+    :,
+    'polySub'
+]
+
+# Dropping rows containing follow-up surveys # 
+
+new_df = df[~df['surveyName'].str.contains('Follow Up Surveys')]
+new_df.reset_index(drop=True)
+new_df = new_df.replace('CONDITION_SKIPPED', 0)
+
+# Changing data type of columns # 
+
+new_df['pComp'] = new_df['pComp'].astype(float)
+new_df['id'] = new_df['id'].astype(str)
+new_df['howHigh'] = new_df['howHigh'].astype(int)
+new_df['howDrunk'] = new_df['howDrunk'].astype(int)
+
+## Exporting CSV for multi-level modeling ## 
+
+new_df.to_csv('C:/Users/denni/OneDrive/Desktop/mlmData.csv')
+
