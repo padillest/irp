@@ -355,7 +355,349 @@ new_df['id'] = new_df['id'].astype(str)
 new_df['howHigh'] = new_df['howHigh'].astype(int)
 new_df['howDrunk'] = new_df['howDrunk'].astype(int)
 
-## Exporting CSV for multi-level modeling ## 
+## Calculating person means and within-person variance ## 
 
-new_df.to_csv('C:/Users/denni/OneDrive/Desktop/mlmData.csv')
+new_df=new_df.reset_index(drop=True)
+new_df['howHigh_personMean'] = pd.Series(int)
+new_df['howHigh_withinVar'] = pd.Series(int)
 
+new_df['howDrunk_personMean'] = pd.Series(int)
+new_df['howDrunk_withinVar'] = pd.Series(int)
+
+new_df['polySub_personMean'] = pd.Series(int)
+new_df['polySub_withinVar'] = pd.Series(int)
+
+avgHigh = []
+avgDrunk = []
+avgPoly = []
+
+def add(i):
+    avgHigh.append(new_df.iloc[i,4])
+    avgDrunk.append(new_df.iloc[i,5])
+    avgPoly.append(new_df.iloc[i,6])
+    
+def empty(i):
+    new_df.iloc[i,7]=np.nan
+    new_df.iloc[i,9]=np.nan
+    new_df.iloc[i,11]=np.nan
+    
+def average(i):
+    new_df.iloc[i,7]=np.mean(avgHigh)
+    new_df.iloc[i,9]=np.mean(avgDrunk)
+    new_df.iloc[i,11]=np.mean(avgPoly)
+
+for i in new_df.index:
+    curr = new_df.iloc[i,0]
+    if i != pd.Index(new_df).size-1:
+        next = new_df.iloc[i+1,0]
+        if curr==next:
+            add(i)
+            empty(i)
+        else:
+            add(i)
+            average(i)
+            avgHigh = []
+            avgDrunk = [] 
+            avgPoly = [] 
+            
+    else:
+        add(i)
+        average(i)
+
+# Cleaning # 
+
+data = data[~data['surveyName'].str.contains('Follow Up Surveys')]
+data = data.reset_index(drop=True)
+
+## Calculating limit analysis ## 
+
+limitDrink = data.loc[
+    :,
+    [
+        'id',
+        'comp',
+        'maxStandardDrink',
+    ]
+]
+
+limitSmoke = data.loc[
+    :,
+    [
+        'id',
+        'comp',
+        'maxCannabisGram'
+    ]
+]
+
+limitDrink['maxStandardDrink'] = limitDrink['maxStandardDrink'].replace(
+    {'CONDITION_SKIPPED':'1'}
+)
+limitDrink = limitDrink.reset_index(drop=True)
+limitDrink = limitDrink.astype(float)
+
+for i in limitDrink.index:
+    if limitDrink.iloc[i,2]==99.0:
+        limitDrink.iloc[i,2]=0.0
+    else:
+        limitDrink.iloc[i,2]=1.0
+        
+
+alcLimit = [] 
+
+limitDrink['personMean'] = pd.Series(int)
+limitDrink['withinVar'] = pd.Series(int)
+
+def adding(i):
+    alcLimit.append(limitDrink.iloc[i,2])
+    
+def empty(i):
+    limitDrink.iloc[i,3]=np.nan
+
+def avging(i):
+    limitDrink.iloc[i,3]=np.mean(alcLimit)
+
+# Drinking limit #
+
+for i in limitDrink.index:
+    curr = limitDrink.iloc[i,0]
+    if i != pd.Index(limitDrink).size-1:
+        next = limitDrink.iloc[i+1,0]
+        if curr==next:
+            adding(i)
+            empty(i)
+        else:
+            adding(i)
+            avging(i)
+            alcLimit=[]
+    else:
+        adding(i)
+        avging(i)
+
+backDrink = limitDrink.iloc[::-1]
+    
+for i in range(1,pd.Index(backDrink).size):
+    if backDrink.iloc[i,0]==backDrink.iloc[i-1,0]:
+        backDrink.iloc[i,3]=backDrink.iloc[i-1,3]
+
+limitDrink = backDrink.iloc[::-1]
+
+def withinDrink(i):
+    limitDrink.iloc[i,4]=limitDrink.iloc[i,2]-limitDrink.iloc[i,3]
+    
+for i in limitDrink.index:
+    withinDrink(i)
+    
+limitDrink.to_csv('C:/Users/denni/OneDrive/Desktop/drinkLimit.csv')
+
+# Smoking limit # 
+
+limitSmoke['maxCannabisGram'] = limitSmoke['maxCannabisGram'].replace(
+    {
+    'CONDITION_SKIPPED':'4'
+    }
+)
+
+limitSmoke = limitSmoke.reset_index(drop=True)
+limitSmoke = limitSmoke.astype(float)
+
+limitSmoke = limitSmoke[limitSmoke['maxCannabisGram']!=2]
+
+limitSmoke = limitSmoke.reset_index(drop=True)
+
+limitSmoke['maxCannabisGram'] = limitSmoke['maxCannabisGram'].replace({1.0:0.0})
+
+for i in limitSmoke.index:
+    if limitSmoke.iloc[i,2] != 0.0:
+        limitSmoke.iloc[i,2] = 1
+
+
+canLimit = [] 
+
+limitSmoke['personAvg'] = pd.Series(int)
+limitSmoke['withinVar'] = pd.Series(int)
+
+def canAdd(i):
+    canLimit.append(limitSmoke.iloc[i,2])
+
+def canEmpty(i):
+    limitSmoke.iloc[i,3]=np.nan
+    
+def canAvg(i):
+    limitSmoke.iloc[i,3]=np.mean(canLimit)
+    
+for i in limitSmoke.index:
+    curr = limitSmoke.iloc[i,0]
+    if i != pd.Index(limitSmoke).size-1:
+        next = limitSmoke.iloc[i+1,0]
+        if curr == next:
+            canAdd(i)
+            canEmpty(i)
+        else:
+            canAdd(i)
+            canAvg(i)
+            canLimit=[]
+    else:
+        canAdd(i)
+        canAvg(i)
+
+backSmoke = limitSmoke.iloc[::-1]
+
+
+for i in range(1,pd.Index(backSmoke).size):
+    if backSmoke.iloc[i,0]==backSmoke.iloc[i-1,0]:
+        backSmoke.iloc[i,3]=backSmoke.iloc[i-1,3]
+
+limitSmoke = backSmoke.iloc[::-1]
+
+def withinSmoke(i):
+    limitSmoke.iloc[i,4]=limitSmoke.iloc[i,2]-limitSmoke.iloc[i,3]
+    
+for i in limitSmoke.index:
+    withinSmoke(i)
+
+limitSmoke.to_csv('C:/Users/denni/OneDrive/Desktop/smokeLimit.csv')
+
+## Calculating maximum drinks/cannabis per session ## 
+
+maxDrink = data.loc[
+    :,
+    [
+        'id',
+        'comp',
+        'maxStandardDrink',
+    ]
+]
+
+maxSmoke = data.loc[
+    :,
+    [
+        'id',
+        'comp',
+        'maxCannabisGram'
+    ]
+]
+
+# Maximum drinks # 
+
+maxDrink = maxDrink[~maxDrink.maxStandardDrink.str.contains('99')]
+maxDrink['maxStandardDrink'] = maxDrink['maxStandardDrink'].replace(
+{
+    'CONDITION_SKIPPED':'0'
+})
+
+maxDrink.maxStandardDrink = maxDrink.maxStandardDrink.astype(float)
+
+maxDrink = maxDrink.reset_index(drop=True)
+
+maxPlanDrink = [] 
+
+maxDrink['personAvg'] = pd.Series(int)
+maxDrink['withinVar'] = pd.Series(int)
+
+def addPlanDrink(i):
+    maxPlanDrink.append(maxDrink.iloc[i,2])
+    
+def makeNull(i):
+    maxDrink.iloc[i,3] = np.nan
+    
+def planDrinkAvg(i):
+    maxDrink.iloc[i,3]=np.mean(maxPlanDrink)
+    
+for i in maxDrink.index:
+    curr=maxDrink.iloc[i,0]
+    if i != pd.Index(maxDrink).size-1:
+        fut=maxDrink.iloc[i+1,0]
+        if curr==fut:
+            addPlanDrink(i)
+            makeNull(i)
+        else:
+            addPlanDrink(i)
+            planDrinkAvg(i)
+            maxPlanDrink=[]
+    else:
+        addPlanDrink(i)
+        planDrinkAvg(i)
+
+backMaxDrink = maxDrink.iloc[::-1]
+for i in range(1,pd.Index(backMaxDrink).size):
+    if backMaxDrink.iloc[i,0]==backMaxDrink.iloc[i-1,0]:
+        backMaxDrink.iloc[i,3]=backMaxDrink.iloc[i-1,3]
+
+maxDrink = backMaxDrink.iloc[::-1]
+
+def withinVar(i):
+    maxDrink.iloc[i,4]=maxDrink.iloc[i,2]-maxDrink.iloc[i,3]
+    
+for i in maxDrink.index:
+    withinVar(i)
+    
+maxDrink.to_csv('C:/Users/denni/OneDrive/Desktop/maxPlannedDrink.csv')
+
+# Maximum cannabis # 
+
+maxSmoke['maxCannabisGram'] = maxSmoke['maxCannabisGram'].replace(
+{
+    'CONDITION_SKIPPED':'0'
+})
+maxSmoke = maxSmoke[~maxSmoke.maxCannabisGram.str.contains('2')]
+maxSmoke = maxSmoke[~maxSmoke.maxCannabisGram.str.contains('1')]
+
+ordGram = {
+    3:0.062,
+    4:0.125,
+    5:0.25,
+    6:0.5,
+    7:0.75,
+    8:1,
+    9:1.25
+}
+
+maxSmoke = maxSmoke.astype(float)
+
+maxSmoke.maxCannabisGram = maxSmoke.maxCannabisGram.replace(ordGram)
+maxSmoke = maxSmoke.reset_index(drop=True)
+
+maxSmoke['personAvg'] = pd.Series(int)
+maxSmoke['withinVar'] = pd.Series(int)
+
+maxPlanSmoke = [] 
+
+def addSmoke(i):
+    maxPlanSmoke.append(maxSmoke.iloc[i,2])
+    
+def createNull(i):
+    maxSmoke.iloc[i,3]=np.nan
+
+def createAvg(i):
+    maxSmoke.iloc[i,3]=np.mean(maxPlanSmoke)
+
+for i in maxSmoke.index:
+    curr=maxSmoke.iloc[i,0]
+    if i != pd.Index(maxSmoke).size-1:
+        fut=maxSmoke.iloc[i+1,0]
+        if curr==fut:
+            addSmoke(i)
+            createNull(i)
+        else:
+            addSmoke(i)
+            createAvg(i)
+            maxPlanSmoke=[]
+    else:
+        addSmoke(i)
+        createAvg(i)
+        
+backMaxSmoke = maxSmoke.iloc[::-1]
+
+for i in range(1,pd.Index(backMaxSmoke).size):
+    if backMaxSmoke.iloc[i,0]==backMaxSmoke.iloc[i-1,0]:
+        backMaxSmoke.iloc[i,3]=backMaxSmoke.iloc[i-1,3]
+
+maxSmoke = backMaxSmoke.iloc[::-1]
+
+def withinVar(i):
+    maxSmoke.iloc[i,4]=maxSmoke.iloc[i,2]-maxSmoke.iloc[i,3]
+    
+for i in maxSmoke.index:
+    withinVar(i)
+    
+maxSmoke.to_csv('C:/Users/denni/OneDrive/Desktop/maxPlannedSmoke.csv')
