@@ -1,0 +1,615 @@
+#### R Script for Linear and Non-linear Regressions ####
+#### Importing data from Python ####
+
+compImpulse <- read.csv('~/Desktop/newCompImpulse.csv')
+compPC <- read.csv('~/Desktop/avgPhoneCheck.csv')
+compSt <- read.csv('~/Desktop/compSt.csv')
+compUse <- read.csv('~/Desktop/compUse.csv')
+compAru <- read.csv('~/Desktop/compAru.csv')
+compCudit <- read.csv('~/Desktop/compCudit.csv')
+compAudit <- read.csv('~/Desktop/compAudit.csv')
+compNu <- read.csv('~/Desktop/compNU.csv')
+
+#### Hypothesis 1 ####
+
+### Premedication against Compliance ###
+
+plot(
+  compImpulse$lprTotal, 
+  compImpulse$total,
+  xlab='Premeditation',
+  ylab='Total Avg Compliance',
+  main='Premeditation against Total Avg Compliance'
+)
+
+lpr_total_first <- lm(
+  compImpulse$total ~ compImpulse$lprTotal,
+)
+
+lpr_total_second <- lm(
+  compImpulse$total ~ poly(compImpulse$lprTotal, degree=2, raw=T),
+)
+
+lpr_total_third <- lm(
+  compImpulse$total ~ poly(compImpulse$lprTotal, degree=3, raw=T),
+)
+
+abline(
+  lpr_total_first,col='black',lwd=4
+)
+summary(quad)
+lines(
+  smooth.spline(
+    compImpulse$lprTotal,
+    predict(lpr_total_second)
+  ),
+  col='red',
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compImpulse$lprTotal,
+    predict(lpr_total_third)
+  ),
+  col='green',
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomright',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(lpr_total_first)
+summary(lpr_total_second)
+summary(lpr_total_third)
+
+anova(lpr_total_first, lpr_total_second)
+anova(lpr_total_first, lpr_total_third)
+
+par(mfrow=c(2,2))
+plot(lpr_total_first)
+
+### Perseverance against Compliance ###
+
+plot(
+  compImpulse$lpeTotal, 
+  compImpulse$total,
+  xlab='Perseverance',
+  ylab='Total Avg Compliance',
+  main='Perseverance against Total Avg Compliance'
+)
+
+lpe_total_first <- lm(
+  compImpulse$total ~ compImpulse$lpeTotal
+)
+
+lpe_total_second <- lm(
+  compImpulse$total ~ poly(compImpulse$lpeTotal, degree=2, raw=T)
+)
+
+lpe_total_third <- lm(
+  compImpulse$total ~ poly(compImpulse$lpeTotal, degree=3, raw=T)
+)
+
+abline(
+  lpe_total_first,col='black',lwd=4
+)
+
+lines(
+  smooth.spline(
+    compImpulse$lpeTotal,
+    predict(lpe_total_second)
+  ),
+  col='red',
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compImpulse$lpeTotal,
+    predict(lpe_total_third)
+  ),
+  col='green',
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomright',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(lpe_total_first)
+summary(lpe_total_second)
+summary(lpe_total_third)
+
+anova(lpe_total_first, lpe_total_second)
+anova(lpe_total_first, lpe_total_third)
+
+par(mfrow=c(2,2))
+plot(lpe_total_first)
+
+#### Hypothesis 2 #### 
+
+### Phone Check against Compliance ###
+
+plot(
+  compPC$group, 
+  compPC$comp,
+  xlab='Avg Phone Checks per Day',
+  ylab='Total Avg Compliance',
+  main='Avg Phone Checks against Total Avg Compliance'
+)
+
+compPC_linear <- lm(
+  compPC$comp ~ compPC$group
+)
+
+compPC_quad <- lm(
+  compPC$comp ~ poly(compPC$group, degree=2, raw=T)
+)
+
+compPC_cube <- lm(
+  compPC$comp ~ poly(compPC$group, degree=3, raw=T)
+)
+
+abline(
+  compPC_linear,
+  col=1,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compPC$group,
+    predict(compPC_quad)
+  ),
+  lwd=4,
+  col=2,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compPC$group,
+    predict(compPC_cube)
+  ),
+  lwd=4,
+  col=3,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compPC_linear)
+summary(compPC_quad)
+summary(compPC_cube)
+
+anova(compPC_linear, compPC_quad)
+anova(compPC_linear, compPC_cube)
+
+par(mfrow=c(2,2))
+plot(compPC_linear)
+
+### Screen Time against Total Avg Compliance
+
+plot(
+  compSt$sb2, 
+  compSt$total,
+  xlab='Avg Screen Time per Day',
+  ylab='Total Avg Compliance',
+  main='Avg Screen Time against Total Avg Compliance'
+)
+
+compSt_linear <- lm(
+  compSt$total ~ compSt$sb2
+)
+
+compSt_quad <- lm(
+  compSt$total ~ poly(compSt$sb2, degree=2, raw=T)
+)
+
+compSt_cube <- lm(
+  compSt$total ~ poly(compSt$sb2, degree=3, raw=T)
+)
+
+abline(
+  compSt_linear,
+  col=1,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compSt$sb2,
+    predict(compSt_quad)
+  ),
+  lwd=4,
+  col=2,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compSt$sb2,
+    predict(compSt_cube)
+  ),
+  lwd=4,
+  col=3,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compSt_linear)
+summary(compSt_quad)
+summary(compPC_cube)
+
+anova(compPC_linear, compPC_quad)
+anova(compPC_linear, compPC_cube)
+
+par(mfrow=c(2,2))
+plot(compPC_linear)
+
+
+#### Hypothesis 3 ####
+
+### Average Frequency of Cannabis Use against Total Avg Compliance ###
+
+plot(
+  compUse$dfaqcu3,
+  compUse$total,
+  xlab='Average Cannabis Use',
+  ylab='Total Avg Compliance',
+  main='Avg Cannabis Use against Avg Compliance'
+)
+
+compUse_linear <- lm(
+  compUse$total ~ compUse$dfaqcu3
+)
+
+compUse_quad <- lm(
+  compUse$total ~ poly(compUse$dfaqcu3, degree=2, raw=T)
+)
+
+compUse_cube <- lm(
+  compUse$total ~ poly(compUse$dfaqcu3, degree=3, raw=T)
+)
+
+abline(
+  compUse_linear,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compUse$dfaqcu3,
+    predict(compUse_quad)
+  ),
+  col=2,
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compUse$dfaqcu3,
+    predict(compUse_cube)
+  ),
+  col=3,
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compUse_linear)
+summary(compUse_quad)
+summary(compUse_cube)
+
+anova(compUse_linear, compUse_quad)
+anova(compUse_linear, compUse_cube)
+
+par(mfrow=c(2,2))
+plot(compUse_linear)
+
+### Past Month Cannabis against Total Avg Compliance
+
+plot(
+  compUse$dfaqcu7,
+  compUse$total,
+  xlab='Past Month Cannabis Use',
+  ylab='Total Avg Compliance',
+  main='Past Month Cannabis Use against Total Avg Compliance'
+)
+
+compPm_linear <- lm(
+  compUse$total ~ compUse$dfaqcu7
+)
+
+compPm_quad <- lm(
+  compUse$total ~ poly(compUse$dfaqcu7, degree=2, raw=T)
+)
+
+compPm_cube <- lm(
+  compUse$total ~ poly(compUse$dfaqcu7, degree=3, raw=T)
+)
+
+abline(
+  compPm_linear,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compUse$dfaqcu7,
+    predict(compPm_quad)
+  ),
+  col=2,
+  lty=2,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compUse$dfaqcu7,
+    predict(compPm_cube)
+  ),
+  col=3,
+  lty=3,
+  lwd=4
+)
+
+legend(
+  'bottomleft', 
+  bty='y',
+  legend=c('Linear', 'Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3)
+)
+
+summary(compPm_linear)
+summary(compPm_quad)
+summary(compPm_cube)
+
+anova(compPm_linear, compPm_quad)
+anova(compPm_linear, compPm_cube)
+
+par(mfrow=c(2,2))
+plot(compPm_linear)
+
+#### Hypothesis 4 #### 
+
+### Past Month Alcohol ###
+
+plot(
+  compAru$freq90b,
+  compAru$total,
+  xlab='Past Month Alcohol Use',
+  ylab='Total Avg Compliance',
+  main='Past Month Alcohol Use against Total Avg Compliance'
+)
+
+compAlc_linear <- lm(
+  compAru$total ~ compAru$freq90b
+)
+
+compAlc_quad <- lm(
+  compAru$total ~ poly(compAru$freq90b, degree=2, raw=T)
+)
+
+compAlc_cube <- lm(
+  compAru$total ~ poly(compAru$freq90b, degree=3, raw=T)
+)
+
+abline(
+  compAlc_linear,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compAru$freq90b,
+    predict(compAlc_quad)
+  ),
+  col=2,
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compAru$freq90b,
+    predict(compAlc_cube)
+  ),
+  col=3,
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compAlc_linear)
+summary(compAlc_quad)
+summary(compAlc_cube)
+
+anova(compAlc_linear, compAlc_quad)
+anova(compAlc_linear, compAlc_cube)
+
+par(mfrow=c(2,2))
+plot(compAlc_linear)
+
+#### Hypothesis 5 #### 
+
+### CUDIT against Compliance ###
+
+head(compCudit)
+
+plot(
+  compCudit$cudit,
+  compCudit$totalComp,
+  xlab='CUDIT Score',
+  ylab='Total Avg Compliance',
+  main='CUDIT Score against Total Avg Compliance'
+)
+
+compCudit_linear <- lm(
+  compCudit$totalComp ~ compCudit$cudit
+)
+
+compCudit_quad <- lm(
+  compCudit$totalComp ~ poly(compCudit$cudit, degree=2, raw=T)
+)
+
+compCudit_cube <- lm(
+  compCudit$totalComp ~ poly(compCudit$cudit, degree=3, raw=T)
+)
+
+abline(
+  compCudit_linear,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compCudit$cudit,
+    predict(compCudit_quad)
+  ),
+  col=2,
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compCudit$cudit,
+    predict(compCudit_cube)
+  ),
+  col=3,
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compCudit_linear)
+summary(compCudit_quad)
+summary(compCudit_cube)
+
+anova(compCudit_linear, compCudit_quad)
+
+par(mfrow=c(2,2))
+plot(compCudit_linear)
+
+### AUDIT Score vs Compliance ###
+
+head(compAudit)
+
+plot(
+  compAudit$audit_total,
+  compAudit$total,
+  xlab='AUDIT Score',
+  ylab='Total Avg Compliance',
+  main='AUDIT Score against Total Avg Compliance'
+)
+
+compAudit_linear <- lm(
+  compAudit$total ~ compAudit$audit_total
+)
+
+compAudit_quad <- lm(
+  compAudit$total ~ poly(compAudit$audit_total, degree=2, raw=T)
+)
+
+compAudit_cube <- lm(
+  compAudit$total ~ poly(compAudit$audit_total, degree=3, raw=T)
+)
+
+abline(
+  compAudit_linear,
+  lwd=4
+)
+
+lines(
+  smooth.spline(
+    compAudit$audit_total,
+    predict(compAudit_quad)
+  ),
+  col=2,
+  lwd=4,
+  lty=2
+)
+
+lines(
+  smooth.spline(
+    compAudit$audit_total,
+    predict(compAudit_cube)
+  ),
+  col=3,
+  lwd=4,
+  lty=3
+)
+
+legend(
+  'bottomleft',
+  bty='y',
+  legend=c('Linear','Quadratic', 'Cubic'),
+  lty=c(1:3),
+  col=c(1:3),
+  lwd=2
+)
+
+summary(compAudit_linear)
+summary(compAudit_quad)
+summary(compAudit_cube)
+
+par(mfrow=c(2,2))
+plot(compAudit_linear)
