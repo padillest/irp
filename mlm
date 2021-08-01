@@ -1,0 +1,255 @@
+library(lme4)
+library(nlme)
+library(sjPlot)
+library(lattice)
+
+mlm <- read.csv('C:/Users/denni/OneDrive/Desktop/centered_mlm.csv')
+mlm$id <- as.character(mlm$id)
+
+str(mlm)
+head(mlm)
+
+drinkLimit <- read.csv('C:/Users/denni/OneDrive/Desktop/drinkLimit.csv')
+drinkLimit$id <- as.character(drinkLimit$id)
+
+str(drinkLimit)
+
+smokeLimit <- read.csv('C:/Users/denni/OneDrive/Desktop/smokeLimit.csv')
+smokeLimit$id <- as.character(smokeLimit$id)
+str(smokeLimit)
+
+maxPlanDrink <- read.csv('C:/Users/denni/OneDrive/Desktop/maxPlannedDrink.csv')
+maxPlanDrink$id <- as.character(maxPlanDrink$id)
+str(maxPlanDrink)
+
+maxPlanSmoke <- read.csv('C:/Users/denni/OneDrive/Desktop/maxPlannedSmoke.csv')
+maxPlanSmoke$id <- as.character(maxPlanSmoke$id)
+str(maxPlanSmoke)
+
+
+#### Self-perceived intoxication - Cannabis #### 
+
+m1 <- lmer(
+  comp~howHigh_personMean+howHigh_withinVar 
+  + (1|id), 
+  data=mlm,
+  REML=FALSE
+)
+summary(m1)
+tab_model(m1)
+
+m1a <- lme(
+  comp~howHigh_personMean+howHigh_withinVar,
+  random=~1|id,
+  data=mlm
+)
+summary(m1a)
+tab_model(m1a)
+
+m1b <- lmer(
+  comp~howHigh_personMean*howHigh_withinVar 
+  + (1|id), 
+  data=mlm,
+  REML=FALSE
+)
+summary(m1b)
+tab_model(m1b)
+
+m2 <- lmer(
+  comp~howHigh_personMean+howHigh_withinVar
+  + (1+howHigh_withinVar|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m2)
+anova(m1,m2)
+
+## m1 is the best fit model 
+
+#### Self-perceived intoxication - Alcohol #### 
+
+m3 <- lmer(
+  comp~howDrunk_personMean+howDrunk_withinVar
+  + (1|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m3)
+
+m3a <- lme(
+  comp~howDrunk_personMean+howDrunk_withinVar,
+  random=~1|id,
+  data=mlm
+)
+summary(m3a)
+
+
+m4 <- lmer(
+  comp~howDrunk_personMean+howDrunk_withinVar
+  + (1+howDrunk_withinVar|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m4)
+
+anova(m3,m4)
+
+#### Poly-substance usage ####
+
+m5 <- lmer(
+  comp~polySub_personMean+polySub_withinVar
+  + (1|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m5)
+
+m5a <- lme(
+  comp~polySub_personMean+polySub_withinVar,
+  random=~1|id,
+  data=mlm
+)
+summary(m5a)
+
+
+
+#### Planned usage - Cannabis #### 
+
+m6 <- lmer(
+  comp~canna_personMean+canna_withinVar
+  + (1|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m6)
+
+m6a <- lme(
+  comp~canna_personMean+canna_withinVar,
+  random=~1|id,
+  data=mlm
+)
+summary(m6a)
+
+m7 <- lmer(
+  comp~canna_personMean+canna_withinVar
+  + (1+canna_withinVar|id),
+  data=mlm,
+  REML=FALSE
+)
+#### Planned usage - Alcohol ####
+
+m7 <- lmer(
+  comp~sd_personMean+sd_withinVar
+  + (1|id),
+  data=mlm,
+  REML=FALSE
+)
+summary(m7)
+
+m7a <- lme(
+  comp~sd_personMean+sd_withinVar,
+  random=~1|id,
+  data=mlm
+)
+summary(m7a)
+
+
+
+#### Binary limits - alcohol #### 
+
+m8 <- lmer(
+  comp~personMean+withinVar
+  + (1|id),
+  data=drinkLimit,
+  REML=FALSE
+)
+summary(m8)
+
+m8a <- lme(
+  comp~personMean+withinVar,
+  random=~1|id,
+  data=drinkLimit
+)
+summary(m8a)
+
+#### Binary limits - cannabis ####
+
+m9 <- lmer(
+  comp~personAvg+withinVar
+  + (1|id),
+  data=smokeLimit,
+  REML=FALSE
+)
+summary(m9)
+
+m9a <- lme(
+  comp~personAvg+withinVar,
+  random=~1|id,
+  data=smokeLimit
+)
+summary(m9a)
+
+#### Max planned use - alcohol #### 
+
+m10 <- lmer(
+  comp~personAvg+withinVar
+  + (1|id),
+  data=maxPlanDrink,
+  REML=FALSE
+)
+summary(m10)
+
+m10a <- lme(
+  comp~personAvg+withinVar,
+  random=~1|id,
+  data=maxPlanDrink
+)
+summary(m10a)
+
+
+#### Max planned use - cannabis ####
+
+m11 <- lmer(
+  comp~personAvg+withinVar
+  + (1|id),
+  data=maxPlanSmoke,
+  REML=FALSE
+)
+summary(m11)
+
+m11a <- lme(
+  comp~personAvg+withinVar,
+  random=~1|id,
+  data=maxPlanSmoke
+)
+summary(m11a)
+
+#### Visualizations ####
+
+## Self-perceived intoxication - Cannabis ## 
+
+groups1 <- unique(mlm$id)[sample(1:68, 12)]
+subset <- mlm[mlm$id%in%groups,]
+
+xyplot(
+  comp~howHigh_withinVar|as.factor(id),
+  subset,
+  col.line='black',
+  type=c('p','r'),
+  main='Variability in Follow Up Compliance~Intoxication',
+  xlab='Self-perceived Intoxication - Cannabis',
+  ylab='Follow-Up Compliance'
+)
+
+groups2 <- unique(mlm$id)[sample(1:68, 5)]
+subset2 <- mlm[mlm$id%in%groups2,]
+
+xyplot(
+  comp~howHigh_withinVar,
+  subset2,
+  type=c('p','smooth'),
+  group=mlm$id,
+  main='Variability in Follow Up Compliance~Intoxication',
+  xlab='Self-perceived intoxication - Cannabis',
+  ylab='Follow Up Compliance'
+)
