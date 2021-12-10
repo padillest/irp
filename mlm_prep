@@ -1,100 +1,104 @@
-## Importing libraries ##
+# Importing libraries 
 
 import pandas as pd 
 import numpy as np 
 from statistics import mean 
 
-## Importing files for dataset merge ## 
+# Importing files for merge 
 
 nu = pd.read_csv("C:/Users/denni/OneDrive/Desktop/NU v6.csv")
 fu = pd.read_csv("C:/Users/denni/OneDrive/Desktop/FU v6.csv")
 
-## Dropping excess columns ##
+# Dropping unnecessary columns 
 
 nu = nu.loc[:, ~nu.columns.str.contains("Updated")]
 nu = nu.loc[:, ~nu.columns.str.contains("Answered")]
 fu = fu.loc[:, ~fu.columns.str.contains("Updated")]
 fu = fu.loc[:, ~fu.columns.str.contains("Answered")]
 
-## Merging the datasets ##
+# Merging the new use and follow up datasets 
 
 merge = pd.concat([nu, fu], ignore_index = True)
 
-## Addressing date issues ##
+# Addressing the date format issues 
 
-# Combining dates and times and reformatting #
-def dateCombine(df, newCol, dateCol, timeCol):
-    df[newCol] = df[dateCol] + " " + df[timeCol]
+def date_combine(df, new_col, date_col, time_col):
+    """ A function that combines two columns """ 
+    df[new_col] = df[date_col] + " " + df[time_col]
     
-dateCombine(merge, "surveyStart", "surveyStartDate", "surveyStartTime")
-dateCombine(merge, "surveySubmit", "surveySubmitDate", "surveySubmitTime")
-dateCombine(merge, "trigger", "triggerDate", "triggerTime")
+date_combine(merge, "survey_start", "surveyStartDate", "surveyStartTime")
+date_combine(merge, "survey_submit", "surveySubmitDate", "surveySubmitTime")
+date_combine(merge, "trigger", "triggerDate", "triggerTime")
 
-# Reformatting # 
+# Reformatting 
 
-def dateConv(df, col):
+def date_conv(df, col):
     df[col] = pd.to_datetime(df[col], format = "%d/%m/%Y %I:%M:%S %p")
     
-dateConv(merge, "surveyStart")
-dateConv(merge, "surveySubmit")
-dateConv(merge, "trigger")
+date_conv(merge, "survey_start")
+date_conv(merge, "survey_submit")
+date_conv(merge, "trigger")
 
-# Dropping leftover columns #
+# Dropping leftover columns 
 
-colDrop = [
+col_drop = [
     "surveyStartDate", "surveyStartTime", "surveySubmitDate", 
     "surveySubmitTime", "triggerDate", "triggerTime"   
 ]
 
-## Re-indexing 2500+ shape dataframe by ID and date ## 
+# Re-indexing 2500+ shape dataframe by ID and date
 
 merge = merge.sort_values(by = ["id", "surveyStart"])
 merge = merge.reset_index()
 merge = merge.drop(columns = colDrop)
 
-## Adding session numbers to new-use responses
+# Adding session numbers to new-use responses
 
 merge["session"] = pd.Series(int)
 
 n = 1 
 data = pd.Index(merge)
 for i in merge.index:
-    currID = merge["id"].iloc[i]
+    # Storing current ID
+    curr_ID = merge["id"].iloc[i]
+    # Checking for end of list
     if i != data.size-1:
-        nextID = merge["id"].iloc[i+1]
-        if currID == nextID:
-            surveyType = merge["surveyName"].iloc[i]
-            if surveyType == "New Use Survey":
+        # Storing the next ID 
+        next_ID = merge["id"].iloc[i+1]
+        if curr_ID == nextID:
+            # Checking for survey type 
+            survey_type = merge["surveyName"].iloc[i]
+            if survey_type == "New Use Survey":
                 merge.at[i, "session"] = n 
                 n += 1
             else:
                 merge.at[i, "session"] = n-1
         else:
-            surveyType = merge["surveyName"].iloc[i]
-            if surveyType == "New Use Survey":
+            survey_type = merge["surveyName"].iloc[i]
+            if survey_type == "New Use Survey":
                 merge.at[i, "session"] = n 
                 n = 1
             else:
                 merge.at[i, "session"] = n-1
                 n = 1
     else:
-        surveyType = merge["surveyName"].iloc[i]
-        if surveyType == "New Use Survey":
+        survey_type = merge["surveyName"].iloc[i]
+        if survey_type == "New Use Survey":
             merge.at[i, "session"] = n
         else:
             merge.at[i, "session"] = n-1
             
 merge = merge.drop(columns = "index")
 
-## Creating necessary compliance columns for compliance calculations ## 
+# Creating necessary compliance columns for compliance calculations
 
 merge["compliance"] = pd.Series(int)
-merge["personCompliance"] = pd.Series(int)
-merge['personTotal'] = pd.Series(int)
-merge['personCompleted'] = pd.Series(int)
-merge['nuTotal']=pd.Series(int)
+merge["person_compliance"] = pd.Series(int)
+merge['person_total'] = pd.Series(int)
+merge['person_completed'] = pd.Series(int)
+merge['nu_total']=pd.Series(int)
 
-## Dropping erroneous rows due to the software (MetricWire) ## 
+# Dropping erroneous rows due to the software (MetricWire)
 
 merge = merge.drop(index=[
     374, 402, 598, 599, 617, 702, 
@@ -103,149 +107,163 @@ merge = merge.drop(index=[
     1820, 1969, 2330, 2338, 2364, 2387, 2388
 ])
 
-merge =merge.reset_index(drop=True)
+merge = merge.reset_index(drop=True)
 
-## Caluclating participant and survey compliance ## 
+# Caluclating participant and survey compliance
 
-sessionCompliance = []
+session_compliance = []
 total = []
 complete =[]
 
 data = pd.Index(merge)
 n = 0
 counter = 0 
-nuCount = 0
+nu_count = 0
 
-def roundComp(i, sessionCompliance, total, complete, nuCount):
-    merge.iloc[i, 104] = round((mean(sessionCompliance))*100, 2)
+def round_comp(i, session_compliance, total, complete, nu_count):
+    merge.iloc[i, 104] = round((mean(session_compliance))*100, 2)
     merge.iloc[i,105] = sum(total)
     merge.iloc[i,106] = sum(complete)
-    merge.iloc[i,107] = nuCount
+    merge.iloc[i,107] = nu_count
     
-def sessCompAdd(i, completed, totalFU):
-    merge.iloc[i, 103] = completed/totalFU
-    sessionCompliance.append(merge.iloc[i, 103])
-    total.append(totalFU)
+def sess_comp_add(i, completed, total_FU):
+    merge.iloc[i, 103] = completed/total_FU
+    session_compliance.append(merge.iloc[i, 103])
+    total.append(total_FU)
     complete.append(completed)
 
 for i in merge.index: 
-    currID = merge.iloc[i, 0]
+    # Storing current index ID 
+    curr_ID = merge.iloc[i, 0]
+    # Checking if at the end of the dataset 
     if i != data.size-1:
-        nextID = merge.iloc[i+1, 0]
-        if currID == nextID:
-            currSess = merge.iloc[i, 102]
-            nextSess = merge.iloc[i+1, 102]
-            if currSess == nextSess:
+        # Storing the next ID
+        next_ID = merge.iloc[i+1, 0]
+        # Checking if we are within the same participant
+        if curr_ID == nextID:
+            # Storing the current session
+            curr_sess = merge.iloc[i, 102]
+            # Storing the next session
+            next_sess = merge.iloc[i+1, 102]
+            # Comparing if we are within the same session
+            if curr_sess == next_sess:
+                # Checking if the survey type is a New Use survey 
                 if merge.iloc[i, 1] == "New Use Survey":
-                    submitTime = merge.iloc[i, 100]
-                    totalFU = 2
+                    # Storing the submission time of the survey
+                    submit_time = merge.iloc[i, 100]
+                    # Creating denominator of total Follow-up surveys
+                    total_FU = 2
+                    # Initializing the completed number of survey variable 
                     completed = 0 
+                    # Initializing the hour multiplier for calculating time submissions
                     n = 0 
                     counter = 0 
-                    nuCount +=1
+                    nu_count += 1
                     merge.iloc[i, 103] = np.nan
                     merge.iloc[i, 107] = np.nan
                 else:
-                    n += 1 
-                    surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
-                    if surveyDiff <= (7200 * n):
+                    n += 1
+                    # Calculating if the submission was submitted in time
+                    survey_diff = (merge.iloc[i, 100] - submit_time).total_seconds()
+                    # Checking if the submission time was within a two-hour window
+                    if survey_diff <= (7200 * n):
                         completed += 1
                         if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
-                            totalFU += 1
+                            total_FU += 1
                             if counter == 1:
-                                totalFU += 1
+                                total_FU += 1
                                 counter = 0 
                         else:
                             counter += 1
             else:
                 if merge.iloc[i, 1] == "New Use Survey":
-                    totalFU = 2 
+                    total_FU = 2 
                     completed = 0 
-                    nuCount +=1
+                    nu_count +=1
                     merge.iloc[i, 107] = np.nan
-                    sessCompAdd(i, completed, totalFU)
+                    sess_comp_add(i, completed, total_FU)
                 else:
                     n += 1
-                    surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
-                    if surveyDiff > (7200 * n):
-                        sessCompAdd(i, completed, totalFU)
+                    survey_diff = (merge.iloc[i, 100] - submit_time).total_seconds()
+                    if survey_diff > (7200 * n):
+                        sess_comp_add(i, completed, total_FU)
                     else:
                         completed += 1
                         if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
-                            totalFU += 1 
+                            total_FU += 1 
                             if counter == 1:
-                                totalFU += 1
-                                sessCompAdd(i, completed, totalFU)
+                                total_FU += 1
+                                sess_comp_add(i, completed, total_FU)
                             else:
-                                sessCompAdd(i, completed, totalFU)
+                                sess_comp_add(i, completed, total_FU)
                         else:
-                            sessCompAdd(i, completed, totalFU)                        
+                            sess_comp_add(i, completed, total_FU)                        
         else:
             if merge.iloc[i, 1] == "New Use Survey":
-                totalFU = 2 
+                total_FU = 2 
                 completed = 0 
                 n = 0
-                nuCount+=1
-                sessCompAdd(i, completed, totalFU)
-                roundComp(i, sessionCompliance, total, complete, nuCount)
-                sessionCompliance = []
+                nu_count+=1
+                sess_comp_add(i, completed, total_FU)
+                round_comp(i, session_compliance, total, complete, nu_Count)
+                session_compliance = []
                 total = []
                 complete =[]
-                nuCount=0
+                nu_count=0
             else:
                 n += 1 
-                surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
-                if surveyDiff > (7200 * n):
-                        sessCompAdd(i, completed, totalFU)
-                        roundComp(i, sessionCompliance, total, complete, nuCount)
-                        sessionCompliance = []
+                survey_diff = (merge.iloc[i, 100] - submit_time).total_seconds()
+                if survey_diff > (7200 * n):
+                        sess_comp_add(i, completed, total_FU)
+                        round_comp(i, session_compliance, total, complete, nu_Count)
+                        session_compliance = []
                         total = []
                         complete =[]
                         n = 0
-                        nuCount=0
+                        nu_count=0
                 else:
                     completed += 1
                     if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
-                        totalFU += 1 
+                        total_FU += 1 
                         n = 0
-                        sessCompAdd(i, completed, totalFU)
-                        roundComp(i, sessionCompliance, total, complete, nuCount)
-                        sessionCompliance = []
+                        sess_comp_add(i, completed, total_FU)
+                        round_comp(i, session_compliance, total, complete, nu_count)
+                        session_compliance = []
                         total = []
                         complete =[]
-                        nuCount=0
+                        nu_count=0
                     else:
                         n = 0
-                        sessCompAdd(i, completed, totalFU)
-                        roundComp(i, sessionCompliance, total, complete, nuCount)
-                        sessionCompliance = []
+                        sess_comp_add(i, completed, total_FU)
+                        round_comp(i, session_compliance, total, complete, nu_count)
+                        session_compliance = []
                         total = []
                         complete =[]
-                        nuCount=0
+                        nu_count=0
     else:
         if merge.iloc[i, 1] == "New Use Survey":
-            totalFU =2 
+            total_FU = 2 
             completed = 0
-            nuCount +=1
-            sessCompAdd(i, completed, totalFU)
-            roundComp(i, sessionCompliance, total, complete, nuCount)
+            nu_count +=1
+            sess_comp_add(i, completed, total_FU)
+            round_comp(i, session_compliance, total, complete, nu_count)
         else:
             n += 1
-            surveyDiff = (merge.iloc[i, 100] - submitTime).total_seconds()
-            if surveyDiff > (7200 * n):
-                sessCompAdd(i, completed, totalFU)
-                roundComp(i, sessionCompliance, total, complete, nuCount)
+            survey_diff = (merge.iloc[i, 100] - submit_time).total_seconds()
+            if survey_diff > (7200 * n):
+                sess_comp_add(i, completed, total_FU)
+                round_comp(i, session_compliance, total, complete, nu_count)
             else:
                 completed += 1
                 if (merge.iloc[i, 2] == 1 or merge.iloc[i, 3] == 1):
-                    totalFU += 1 
-                    sessCompAdd(i, completed, totalFU)
-                    roundComp(i, sessionCompliance, total, complete, nuCount)
+                    total_FU += 1 
+                    sess_comp_add(i, completed, total_FU)
+                    round_comp(i, session_compliance, total, complete, nu_count)
                 else:
-                    sessCompAdd(i, completed, totalFU)
-                    roundComp(i, sessionCompliance, total, complete, nuCount)
+                    sess_comp_add(i, completed, total_FU)
+                    round_comp(i, session_compliance, total, complete, nu_count)
                     
-## Saving as CSV to prepare it for multi-level modeling ## 
+# Saving as CSV to prepare it for multi-level modeling
 
 merge.to_csv('C:/Users/denni/OneDrive/Desktop/mlm.csv')
 
