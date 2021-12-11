@@ -266,7 +266,3 @@ for i in merge.index:
 # Saving as CSV to prepare it for multi-level modeling
 
 merge.to_csv('C:/Users/denni/OneDrive/Desktop/mlm.csv')
-
-## Reformatting to long data with hypothesized predictors ## 
-
-data = pd.read_csv('C:/Users/denni/OneDrive/Desktop/mlm.csv')
